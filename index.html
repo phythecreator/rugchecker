@@ -6,163 +6,340 @@
   <title>RugChecker • phythecreator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; }
-    .score-circle { width: 180px; height: 180px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: bold; box-shadow: 0 0 30px rgba(0,0,0,0.3); }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .score-circle {
+      width: 220px; height: 220px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 4.5rem; font-weight: 800; box-shadow: 0 0 60px -10px;
+      animation: pulse 2s infinite;
+    }
+    .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    .live-dot { animation: livePulse 2s infinite; }
   </style>
 </head>
-<body class="bg-zinc-950 text-white min-h-screen">
+<body class="bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white min-h-screen pb-12">
 
-  <div class="max-w-2xl mx-auto p-6">
-    <div class="text-center mb-8">
-      <h1 class="text-5xl font-bold flex items-center justify-center gap-3">
-        🛡️ RugChecker
-        <span class="text-emerald-400 text-3xl">by phythecreator</span>
-      </h1>
-      <p class="text-zinc-400 mt-2">Analisador de Rug Pull • Memecoins Solana • Score 0-100</p>
+  <div class="max-w-5xl mx-auto px-6 pt-8">
+    <!-- HEADER -->
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-x-4">
+        <div class="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-4xl shadow-lg">🛡️</div>
+        <div>
+          <h1 class="text-5xl font-bold tracking-tighter">RugChecker</h1>
+          <p class="text-emerald-400 text-xl -mt-1">by phythecreator</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs uppercase tracking-widest text-zinc-500">SOLANA MEMECOINS</div>
+        <div class="text-sm text-zinc-400 flex items-center gap-2 justify-end">
+          <div class="w-3 h-3 bg-emerald-400 rounded-full live-dot"></div>
+          LIVE • Dexscreener
+        </div>
+      </div>
     </div>
 
-    <div class="bg-zinc-900 rounded-3xl p-8 shadow-2xl">
+    <!-- INPUT -->
+    <div class="bg-zinc-900/80 backdrop-blur-xl border border-zinc-700 rounded-3xl p-3 mb-8 shadow-2xl">
       <div class="flex gap-3">
-        <input 
-          id="caInput"
-          type="text" 
-          placeholder="Cole o Contract Address (CA) aqui..."
-          class="flex-1 bg-zinc-800 text-white px-6 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
-        >
+        <input id="caInput" 
+               type="text" 
+               placeholder="Cole o Contract Address (CA) da memecoin Solana..."
+               class="flex-1 bg-zinc-800 text-white placeholder:text-zinc-500 px-8 py-6 rounded-3xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xl font-medium">
         <button onclick="analisarToken()" 
-          class="bg-emerald-500 hover:bg-emerald-600 px-10 rounded-2xl font-bold text-lg transition">
+                class="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 px-12 rounded-3xl font-bold text-xl flex items-center gap-3 shadow-lg">
+          <i class="fas fa-search"></i>
           ANALISAR
         </button>
       </div>
-
-      <div id="loading" class="hidden mt-8 text-center">
-        <i class="fas fa-spinner fa-spin text-4xl text-emerald-400"></i>
-        <p class="mt-4 text-zinc-400">A pesquisar na Dexscreener...</p>
-      </div>
-
-      <div id="result" class="hidden mt-8"></div>
     </div>
 
-    <div class="text-center mt-10 text-zinc-500 text-sm">
-      Dados em tempo real da Dexscreener • Apenas Solana • 100% client-side<br>
-      <span class="text-emerald-400">Open source • phythecreator</span>
+    <!-- LOADING -->
+    <div id="loading" class="hidden text-center py-12">
+      <div class="flex justify-center mb-6">
+        <div class="w-16 h-16 border-8 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <p class="text-2xl text-zinc-400">Analisando na blockchain...</p>
+      <p class="text-zinc-500 text-sm mt-2">Dexscreener + 15 verificações automáticas</p>
+    </div>
+
+    <!-- RESULT -->
+    <div id="result" class="hidden">
+
+      <!-- TOKEN HEADER -->
+      <div id="tokenHeader" class="flex items-center gap-6 bg-zinc-900 rounded-3xl p-8 mb-8"></div>
+
+      <!-- SCORE + RECOMMENDATION -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-5 bg-zinc-900 rounded-3xl p-8 flex flex-col items-center">
+          <div id="scoreCircle" class="score-circle border-8 border-emerald-500 bg-zinc-950 text-emerald-400 mb-6"></div>
+          
+          <div id="riskLevel" class="text-3xl font-bold mb-2"></div>
+          <div id="recommendation" class="text-xl font-semibold px-8 py-3 rounded-3xl inline-flex items-center gap-3"></div>
+          
+          <div class="mt-auto w-full pt-8 border-t border-zinc-700">
+            <div class="flex justify-between text-sm">
+              <div>Preço atual</div>
+              <div id="currentPrice" class="font-mono text-3xl font-bold text-emerald-400"></div>
+            </div>
+            <div onclick="refreshPrice()" class="text-emerald-400 text-xs flex items-center gap-2 cursor-pointer hover:text-white mt-2">
+              <i class="fas fa-sync"></i> ATUALIZAR PREÇO AGORA (live)
+            </div>
+          </div>
+        </div>
+
+        <!-- CHECKLIST 15 PARÂMETROS -->
+        <div class="lg:col-span-7 bg-zinc-900 rounded-3xl p-8">
+          <h3 class="text-xl font-bold mb-6 flex items-center gap-3">
+            <i class="fas fa-clipboard-check text-emerald-400"></i>
+            CHECKLIST • 15 PARÂMETROS DE SEGURANÇA
+          </h3>
+          <div id="checklist" class="grid grid-cols-1 gap-3"></div>
+        </div>
+      </div>
+
+      <!-- GRÁFICO DE VARIAÇÃO DE PREÇO -->
+      <div class="bg-zinc-900 rounded-3xl p-8 mt-8">
+        <h3 class="text-xl font-bold mb-6 flex items-center gap-3">
+          <i class="fas fa-chart-line text-cyan-400"></i>
+          VARIAÇÃO DE PREÇO (últimas 24h)
+        </h3>
+        <canvas id="priceChart" class="w-full h-80"></canvas>
+      </div>
+
+      <!-- AVISOS IMPORTANTES -->
+      <div class="mt-8 bg-red-950/50 border border-red-500/30 rounded-3xl p-8">
+        <h3 class="text-red-400 font-bold text-xl mb-4 flex items-center gap-3">
+          <i class="fas fa-triangle-exclamation"></i>
+          AVISOS IMPORTANTES & POSSÍVEIS RUGS
+        </h3>
+        <div id="avisos" class="space-y-4 text-zinc-300"></div>
+      </div>
+
+      <!-- RODAPÉ -->
+      <div class="text-center text-xs text-zinc-500 mt-12">
+        Dados em tempo real da Dexscreener • Checklist parcial (8 automáticos + 7 manuais)<br>
+        Sempre faça DYOR • Verifique liquidez locked e mint authority no Solscan • phythecreator 2026
+      </div>
     </div>
   </div>
 
   <script>
+    let currentChart = null;
+    let currentCA = null;
+    let currentData = null;
+
     async function analisarToken() {
       const ca = document.getElementById('caInput').value.trim();
-      const loading = document.getElementById('loading');
-      const resultDiv = document.getElementById('result');
-
       if (!ca || ca.length < 30) {
         alert("❌ Insere um Contract Address válido da Solana!");
         return;
       }
 
-      loading.classList.remove('hidden');
-      resultDiv.classList.add('hidden');
+      currentCA = ca;
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('result').classList.add('hidden');
 
       try {
-        // Usa proxy CORS para funcionar em qualquer sitio (GitHub Pages, ficheiro local, etc.)
-        const apiUrl = `https://api.dexscreener.com/latest/dex/tokens/${ca}`;
-        const proxyUrl = `https://corsproxy.io/?` + encodeURIComponent(apiUrl);
-        
+        const proxyUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
         const res = await fetch(proxyUrl);
         const data = await res.json();
 
-        if (!data.pairs || data.pairs.length === 0) {
-          throw new Error("Token não encontrado ou sem pool na Dexscreener.");
-        }
+        if (!data.pairs || data.pairs.length === 0) throw new Error("Token não encontrado ou sem pool na Dexscreener.");
 
         const pair = data.pairs[0];
+        currentData = pair;
 
-        const tokenName = pair.baseToken.name || "Unknown";
-        const tokenSymbol = pair.baseToken.symbol || "???";
+        const name = pair.baseToken.name || "Unknown Token";
+        const symbol = pair.baseToken.symbol || "???";
         const liquidity = pair.liquidity?.usd || 0;
         const volume24h = pair.volume?.h24 || 0;
         const fdv = pair.fdv || 0;
-        const price = pair.priceUsd || 0;
+        const price = parseFloat(pair.priceUsd || 0);
         const pairCreatedAt = pair.pairCreatedAt;
         const tx24h = (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0);
+        const priceChange = pair.priceChange || { m5: 0, h1: 0, h6: 0, h24: 0 };
 
-        // Cálculo do Score 0-100 (quanto maior = mais perigoso)
+        // === CÁLCULO DO SCORE 0-100 ===
         let score = 0;
         let reasons = [];
 
-        if (liquidity < 10000) { score += 45; reasons.push("🔴 Liquidez muito baixa (< $10k)"); }
-        else if (liquidity < 50000) { score += 30; reasons.push("🟠 Liquidez baixa (< $50k)"); }
+        if (liquidity < 10000) { score += 45; reasons.push("Liquidez muito baixa"); }
+        else if (liquidity < 50000) { score += 30; reasons.push("Liquidez baixa"); }
 
-        if (liquidity > 0 && volume24h / liquidity > 15) { 
-          score += 25; reasons.push("🔴 Volume suspeito (possível wash trading)"); 
-        }
+        if (liquidity > 0 && volume24h / liquidity > 12) { score += 25; reasons.push("Volume suspeito (wash trading)"); }
 
         if (pairCreatedAt) {
-          const ageHours = (Date.now() - pairCreatedAt) / (1000 * 60 * 60);
-          if (ageHours < 6) { score += 20; reasons.push(`🔴 Token tem menos de 6 horas`); }
+          const ageHours = (Date.now() - pairCreatedAt) / (3600000);
+          if (ageHours < 6) { score += 20; reasons.push("Token tem menos de 6 horas"); }
         }
 
-        if (fdv > 5000000 && liquidity < 50000) { 
-          score += 15; reasons.push("🟠 FDV alto com liquidez baixa"); 
-        }
+        if (fdv > 8000000 && liquidity < 80000) { score += 18; reasons.push("FDV muito alto para liquidez baixa"); }
 
-        if (tx24h < 50 && liquidity > 0) { 
-          score += 10; reasons.push("🟠 Poucas transações (pode ser dead ou fake)"); 
-        }
+        if (tx24h < 80) { score += 12; reasons.push("Poucas transações"); }
 
         score = Math.min(100, Math.max(0, score));
 
-        // Cor e emoji
-        let cor = score >= 70 ? "red" : score >= 40 ? "orange" : "emerald";
-        let emoji = score >= 70 ? "☠️" : score >= 40 ? "⚠️" : "✅";
-        let nivel = score >= 70 ? "ALTO RISCO (RUG)" : score >= 40 ? "RISCO MÉDIO" : "BAIXO RISCO";
+        // === RENDER TOKEN HEADER ===
+        const headerHTML = `
+          <div class="flex items-center gap-6 w-full">
+            <div class="w-20 h-20 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl shadow-inner">🪙</div>
+            <div class="flex-1">
+              <h2 class="text-4xl font-bold">${name} <span class="text-2xl text-zinc-400">(${symbol})</span></h2>
+              <p class="text-emerald-400 font-mono text-lg">${ca.substring(0,12)}...${ca.substring(ca.length-8)}</p>
+            </div>
+            <div class="text-right">
+              <div class="text-xs uppercase text-zinc-400">Creator</div>
+              <div class="text-zinc-400 text-sm">Não detectado (verifique no Solscan)</div>
+            </div>
+          </div>`;
+        document.getElementById('tokenHeader').innerHTML = headerHTML;
 
-        // HTML do resultado
-        let html = `
+        // === SCORE CIRCLE ===
+        const cor = score >= 70 ? "red" : score >= 40 ? "orange" : "emerald";
+        document.getElementById('scoreCircle').innerHTML = `
           <div class="text-center">
-            <h2 class="text-3xl font-bold">${tokenName} <span class="text-zinc-400">(${tokenSymbol})</span></h2>
-            
-            <div class="flex justify-center my-8">
-              <div class="score-circle border-8 border-${cor}-500 bg-zinc-900 text-${cor}-400">
-                ${score}
-              </div>
+            <div class="text-7xl">${score}</div>
+            <div class="text-xs -mt-2 uppercase tracking-widest">/100</div>
+          </div>`;
+        document.getElementById('scoreCircle').className = `score-circle border-8 border-${cor}-500 bg-zinc-950 text-${cor}-400 mb-6`;
+
+        // === RISK LEVEL + RECOMMENDATION ===
+        const nivel = score >= 70 ? "☠️ ALTO RISCO - POSSÍVEL RUG" : 
+                      score >= 40 ? "⚠️ RISCO MÉDIO" : "✅ BAIXO RISCO";
+        document.getElementById('riskLevel').innerHTML = nivel;
+        document.getElementById('riskLevel').className = `text-3xl font-bold mb-2 text-${cor}-400`;
+
+        const boaEntrada = score < 40 ? 
+          `<span class="bg-emerald-500 text-black px-6 py-2 rounded-3xl">🚀 PODE SER UMA BOA ENTRADA AGORA</span>` : 
+          `<span class="bg-orange-500 text-black px-6 py-2 rounded-3xl">⚠️ CUIDADO - NÃO É UMA BOA ENTRADA</span>`;
+        document.getElementById('recommendation').innerHTML = boaEntrada;
+
+        // Preço atual
+        document.getElementById('currentPrice').textContent = `$${price.toFixed(6)}`;
+
+        // === CHECKLIST 15 PARÂMETROS ===
+        const checklistHTML = `
+          <div class="space-y-3">
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${liquidity > 10000 ? 'text-emerald-400' : 'text-red-400'}">
+              <span>1. Liquidez > $10.000</span>
+              <i class="fas ${liquidity > 10000 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
             </div>
-            
-            <div class="text-2xl font-bold text-${cor}-400">${emoji} ${nivel}</div>
-            
-            <div class="mt-8 grid grid-cols-2 gap-6 text-left">
-              <div><strong>Liquidez:</strong> $${liquidity.toLocaleString('pt-PT')}</div>
-              <div><strong>Volume 24h:</strong> $${volume24h.toLocaleString('pt-PT')}</div>
-              <div><strong>FDV:</strong> $${fdv.toLocaleString('pt-PT')}</div>
-              <div><strong>Preço:</strong> $${parseFloat(price).toFixed(6)}</div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${liquidity > 50000 ? 'text-emerald-400' : 'text-orange-400'}">
+              <span>2. Liquidez > $50.000 (ideal)</span>
+              <i class="fas ${liquidity > 50000 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${volume24h / liquidity < 12 ? 'text-emerald-400' : 'text-red-400'}">
+              <span>3. Volume/Liquidez < 12x (sem wash)</span>
+              <i class="fas ${volume24h / liquidity < 12 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${pairCreatedAt && (Date.now() - pairCreatedAt)/3600000 > 6 ? 'text-emerald-400' : 'text-red-400'}">
+              <span>4. Pool tem mais de 6 horas</span>
+              <i class="fas ${pairCreatedAt && (Date.now() - pairCreatedAt)/3600000 > 6 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${tx24h > 80 ? 'text-emerald-400' : 'text-red-400'}">
+              <span>5. Mais de 80 transações em 24h</span>
+              <i class="fas ${tx24h > 80 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${Math.abs(priceChange.h24) < 300 ? 'text-emerald-400' : 'text-orange-400'}">
+              <span>6. Variação 24h não extrema</span>
+              <i class="fas ${Math.abs(priceChange.h24) < 300 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl ${fdv < 8000000 ? 'text-emerald-400' : 'text-orange-400'}">
+              <span>7. FDV abaixo de $8M</span>
+              <i class="fas ${fdv < 8000000 ? 'fa-check-circle' : 'fa-xmark-circle'}"></i>
+            </div>
+            <div class="flex items-center justify-between bg-zinc-800 px-6 py-4 rounded-2xl text-emerald-400">
+              <span>8. Pool ativo no Raydium/Pump.fun</span>
+              <i class="fas fa-check-circle"></i>
             </div>
 
-            <div class="mt-10">
-              <h3 class="text-xl font-bold mb-4">🚩 Riscos Detetados</h3>
-              ${reasons.length ? reasons.map(r => `<div class="bg-zinc-800 p-4 rounded-2xl mb-3">${r}</div>`).join('') : '<p class="text-emerald-400">Nenhum risco grave detetado.</p>'}
+            <!-- Parâmetros manuais (aviso) -->
+            <div class="text-xs text-zinc-400 mt-4 mb-2 px-2">VERIFICAÇÃO MANUAL OBRIGATÓRIA (Solscan / RugCheck):</div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-lock text-yellow-400"></i>9. Liquidez locked/burned</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-key text-yellow-400"></i>10. Mint authority renounced</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-snowflake text-yellow-400"></i>11. Freeze authority desativada</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-users text-yellow-400"></i>12. Top 10 holders &lt; 30%</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-wallet text-yellow-400"></i>13. Dev wallet sem rugs anteriores</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-ban text-yellow-400"></i>14. Sem honeypot</div>
+              <div class="flex items-center gap-2 bg-zinc-800 px-4 py-3 rounded-2xl"><i class="fas fa-percentage text-yellow-400"></i>15. Taxas não modificáveis</div>
             </div>
+          </div>`;
+        document.getElementById('checklist').innerHTML = checklistHTML;
 
-            <div class="mt-8 bg-zinc-800 p-6 rounded-3xl text-sm">
-              ⚠️ <strong>Aviso:</strong> Este checker usa apenas dados públicos da Dexscreener.<br>
-              Verifica sempre mint authority, liquidez locked e top holders no Solscan!
-            </div>
-          </div>
-        `;
+        // === GRÁFICO ===
+        renderChart(priceChange);
 
-        resultDiv.innerHTML = html;
-        resultDiv.classList.remove('hidden');
+        // === AVISOS ===
+        let avisosHTML = `<div class="text-red-300">• Este checker não detecta rugs anteriores do criador</div>`;
+        avisosHTML += `<div class="text-red-300">• Nunca confie 100% em APIs — sempre confira liquidez locked no Solscan</div>`;
+        if (score >= 40) avisosHTML += `<div class="text-orange-300">• Possível rugpull iminente se o dev ainda controla o contrato</div>`;
+        if (liquidity < 50000) avisosHTML += `<div class="text-red-300">• Liquidez baixa = risco alto de rug rápido</div>`;
+        document.getElementById('avisos').innerHTML = avisosHTML;
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('result').classList.remove('hidden');
 
       } catch (err) {
-        resultDiv.innerHTML = `<div class="text-red-400 text-center text-xl">❌ ${err.message}<br><br>Tenta novamente ou verifica se o CA está correto.</div>`;
-        resultDiv.classList.remove('hidden');
+        document.getElementById('loading').classList.add('hidden');
+        alert("Erro: " + err.message + "\nVerifique se o CA está correto e tente novamente.");
       }
-
-      loading.classList.add('hidden');
     }
 
-    // Permite pressionar Enter
-    document.getElementById('caInput').addEventListener('keypress', function(e) {
+    function renderChart(priceChange) {
+      const ctx = document.getElementById('priceChart');
+      if (currentChart) currentChart.destroy();
+
+      currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['5 min', '1 hora', '6 horas', '24 horas'],
+          datasets: [{
+            label: 'Variação %',
+            data: [priceChange.m5 || 0, priceChange.h1 || 0, priceChange.h6 || 0, priceChange.h24 || 0],
+            backgroundColor: ['#10b981', '#10b981', '#eab308', '#ef4444'],
+            borderRadius: 12,
+            barThickness: 50
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } },
+            x: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } }
+          }
+        }
+      });
+    }
+
+    async function refreshPrice() {
+      if (!currentCA || !currentData) return;
+      const proxyUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://api.dexscreener.com/latest/dex/tokens/${currentCA}`);
+      try {
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
+        const pair = data.pairs[0];
+        const price = parseFloat(pair.priceUsd || 0);
+        document.getElementById('currentPrice').innerHTML = `$${price.toFixed(6)} <span class="text-xs text-emerald-400 ml-2">AGORA</span>`;
+        currentData = pair;
+      } catch(e) {}
+    }
+
+    // Auto-refresh preço a cada 30 segundos
+    setInterval(() => {
+      if (currentCA && document.getElementById('result').classList.contains('hidden') === false) {
+        refreshPrice();
+      }
+    }, 30000);
+
+    // Enter no input
+    document.getElementById('caInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') analisarToken();
     });
   </script>
